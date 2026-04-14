@@ -70,7 +70,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # 7. Ngôn ngữ & Thời gian
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
-USE_I18N = True
+USE_I18N = TrueALLOWED_HOSTS = ['web-lich-su-1.onrender.com']
 USE_TZ = True
 
 # 8. Cấu hình File tĩnh (CSS, JS, Images) - Chuẩn Render

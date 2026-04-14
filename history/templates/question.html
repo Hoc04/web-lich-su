@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trắc nghiệm Lịch sử</title>
+    <style>
+        :root { --primary: #fb8c00; --bg: #f0f2f5; }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; background: var(--bg); height: 100vh; }
+        
+        /* Sidebar giống hình mẫu */
+        .sidebar { width: 280px; background: white; border-right: 1px solid #ddd; overflow-y: auto; }
+        .sidebar-header { background: var(--primary); color: white; padding: 20px; display: flex; align-items: center; gap: 10px; }
+        .sidebar-header h2 { margin: 0; font-size: 20px; }
+        .menu-item { padding: 15px 20px; border-bottom: 1px solid #eee; cursor: pointer; transition: 0.2s; font-weight: 500; }
+        .menu-item:hover { background: #fff3e0; }
+        .menu-item.active { background: #ffe0b2; color: #e65100; border-left: 5px solid var(--primary); }
+
+        /* Vùng nội dung câu hỏi */
+        .main-content { flex: 1; padding: 40px; overflow-y: auto; position: relative; }
+        .quiz-card { background: white; max-width: 800px; margin: 0 auto; padding: 30px; border-radius: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
+        
+        /* Header của câu hỏi */
+        .quiz-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .progress-bar { flex: 1; height: 8px; background: #eee; margin: 0 20px; border-radius: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #1976d2; width: 0%; transition: 0.5s; }
+        .stats { display: flex; gap: 10px; }
+        .stat-tag { padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 14px; }
+        .stat-wrong { background: #ffebee; color: #c62828; }
+        .stat-correct { background: #e8f5e9; color: #2e7d32; }
+
+        /* Câu hỏi & Đáp án */
+        .question-text { font-size: 20px; font-weight: 600; margin-bottom: 25px; line-height: 1.5; color: #333; }
+        .option { background: #f8f9fa; padding: 15px 20px; margin-bottom: 12px; border-radius: 12px; border: 2px solid #eee; cursor: pointer; transition: 0.2s; display: flex; align-items: center; }
+        .option:hover { border-color: #bbb; background: #f0f0f0; }
+        .option.selected-correct { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; }
+        .option.selected-wrong { background: #ffebee; border-color: #f44336; color: #c62828; }
+        
+        .footer-nav { margin-top: 30px; text-align: right; }
+        .btn-next { padding: 12px 30px; background: #1976d2; color: white; border: none; border-radius: 30px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <span>📚</span>
+            <h2>Triều đại</h2>
+        </div>
+        <a href="/" style="display:block; padding: 15px; color: #666; text-decoration:none; font-size: 14px;">← Trang chủ</a>
+        {% for section in data.keys %}
+        <div class="menu-item" onclick="loadSection('{{ section }}', this)">{{ section }}</div>
+        {% endfor %}
+    </div>
+
+    <div class="main-content">
+        <div class="quiz-card" id="quiz-ui" style="display: none;">
+            <div class="quiz-header">
+                <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+                <span id="progress-text">1/10</span>
+                <div class="stats">
+                    <div class="stat-tag stat-wrong">❌ <span id="wrong-count">0</span></div>
+                    <div class="stat-tag stat-correct">✅ <span id="correct-count">0</span></div>
+                </div>
+            </div>
+
+            <div id="question-box">
+                <div class="question-text" id="q-text">Đang tải...</div>
+                <div id="options-container"></div>
+            </div>
+
+            <div class="footer-nav">
+                <button class="btn-next" onclick="nextQuestion()">Tiếp theo</button>
+            </div>
+        </div>
+        
+        <div id="welcome-msg" style="text-align: center; margin-top: 100px; color: #888;">
+            <h2>Vui lòng chọn một triều đại bên trái để làm bài!</h2>
+        </div>
+    </div>
+
+    <script>
+        const allData = {{ data|safe }};
+        let currentSection = "";
+        let currentIndex = 0;
+        let correctScore = 0;
+        let wrongScore = 0;
+
+        function loadSection(sectionName, el) {
+            currentSection = sectionName;
+            currentIndex = 0;
+            correctScore = 0;
+            wrongScore = 0;
+            
+            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+            el.classList.add('active');
+            
+            document.getElementById('welcome-msg').style.display = 'none';
+            document.getElementById('quiz-ui').style.display = 'block';
+            updateStats();
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const questions = allData[currentSection];
+            const q = questions[currentIndex];
+            
+            document.getElementById('q-text').innerText = `${currentIndex + 1}. ${q.q}`;
+            document.getElementById('progress-text').innerText = `${currentIndex + 1}/${questions.length}`;
+            document.getElementById('progress').style.width = `${((currentIndex + 1) / questions.length) * 100}%`;
+            
+            const container = document.getElementById('options-container');
+            container.innerHTML = "";
+            
+            q.options.forEach((opt, index) => {
+                const div = document.createElement('div');
+                div.className = 'option';
+                div.innerHTML = `<span style="margin-right:10px; font-weight:bold">${String.fromCharCode(65 + index)}.</span> ${opt}`;
+                div.onclick = () => checkAnswer(div, opt, q.answer);
+                container.appendChild(div);
+            });
+        }
+
+        function checkAnswer(el, selected, correct) {
+            const options = document.querySelectorAll('.option');
+            // Tránh click nhiều lần
+            if (document.querySelector('.selected-correct') || document.querySelector('.selected-wrong')) return;
+
+            if (selected === correct) {
+                el.classList.add('selected-correct');
+                correctScore++;
+            } else {
+                el.classList.add('selected-wrong');
+                wrongScore++;
+                options.forEach(o => {
+                    if (o.innerText.includes(correct)) o.classList.add('selected-correct');
+                });
+            }
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('correct-count').innerText = correctScore;
+            document.getElementById('wrong-count').innerText = wrongScore;
+        }
+
+        function nextQuestion() {
+            if (currentIndex < allData[currentSection].length - 1) {
+                currentIndex++;
+                renderQuestion();
+            } else {
+                alert(`Chúc mừng! Bạn đã hoàn thành triều đại ${currentSection}.\nĐúng: ${correctScore}\nSai: ${wrongScore}`);
+            }
+        }
+    </script>
+</body>
+</html>

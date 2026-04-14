@@ -1,6 +1,5 @@
 from django.contrib import admin
-from .models import Event, Video, Question
+from .models import Dynasty, Question
 
-admin.site.register(Event)
-admin.site.register(Video)
+admin.site.register(Dynasty)
 admin.site.register(Question)

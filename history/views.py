@@ -1,4 +1,10 @@
-from django.shortcuts import render
+import uuid
+import urllib.parse
+from django.shortcuts import render, get_object_or_404, redirect
+from django.core.mail import send_mail
+from django.conf import settings
+from django.db.models import Count
+from .models import Dynasty, Question, Book, Order
 
 def home(request):
     return render(request, 'home.html')
@@ -10,6 +16,58 @@ def video_page(request):
         {"title": "Kháng chiến chống Mỹ", "url": "https://www.youtube.com/embed/TQehUlbyp3o"}
     ]
     return render(request, 'video.html', {'videos': videos})
+# 1. Trang học tập (Lấy dữ liệu từ DB)
+def question_page(request):
+    dynasties = Dynasty.objects.prefetch_related('questions').all()
+    return render(request, 'question.html', {'dynasties': dynasties})
+
+# 2. Trang cửa hàng sách
+def book_store(request):
+    books = Book.objects.all()  # Hoặc lọc theo điều kiện
+    return render(request, 'store.html', {'books': books})
+
+# 3. View tạo QR thanh toán
+def initiate_payment(request, book_id):
+    book = get_object_or_404(Book, id=book_id)
+    order_code = str(uuid.uuid4())[:8].upper()
+    
+    # Tạo đơn hàng tạm thời (Lưu email demo)
+    order = Order.objects.create(
+        book=book, 
+        order_code=order_code, 
+        customer_email="nguoimua@gmail.com" # Trong thực tế lấy từ Form
+    )
+    
+    # VietQR config
+    BANK_ID = "vcb"
+    ACCOUNT_NO = "123456789"
+    DESCRIPTION = f"THANH TOAN {order_code}"
+    qr_url = f"https://img.vietqr.io/image/{BANK_ID}-{ACCOUNT_NO}-compact2.png?amount={book.price}&addInfo={urllib.parse.quote(DESCRIPTION)}"
+    
+    return render(request, 'payment.html', {'order': order, 'qr_url': qr_url})
+
+# 4. Xác nhận thanh toán & Gửi Email
+def verify_payment_mock(request, order_code):
+    order = get_object_or_404(Order, order_code=order_code)
+    order.status = True
+    order.save()
+
+    # Logic gửi Email
+    subject = f"Xác nhận thanh toán đơn hàng {order.order_code}"
+    message = f"Cảm ơn bạn đã mua sách {order.book.title}. Đơn hàng {order.book.price}đ đã thành công."
+    try:
+        send_mail(subject, message, settings.EMAIL_HOST_USER, [order.customer_email])
+    except:
+        pass
+
+    return render(request, 'payment_success.html', {'order': order})
+
+# 5. Thống kê (Dùng cho biểu đồ)
+def statistics_view(request):
+    data = Dynasty.objects.annotate(q_count=Count('questions')).values('name', 'q_count')
+    labels = [x['name'] for x in data]
+    values = [x['q_count'] for x in data]
+    return render(request, 'stats.html', {'labels': labels, 'values': values})
 
 def question_page(request):
     # Dữ liệu 100+ câu hỏi chia theo triều đại / giai đoạn
